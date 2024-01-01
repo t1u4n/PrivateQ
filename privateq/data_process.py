@@ -2,6 +2,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup, NavigableString
 from privateq.config import FILE_DIR
 from typing import Dict, List
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 import os
 
@@ -35,7 +36,8 @@ def extract_sections(record: Dict[str, str]) -> List[str]:
             section_list.append({"source": f"{uri}#{section_id}", "text": section_text})
     return section_list
 
-def fetch_text(uri):
+def fetch_text(uri: str) -> str:
+    """Fetch text from a URI."""
     url, anchor = uri.split("#") if "#" in uri else (uri, None)
     file_path = Path(FILE_DIR, url.split("https://")[-1])
     with open(file_path, "r", encoding="utf-8") as file:
@@ -50,3 +52,15 @@ def fetch_text(uri):
     else:
         text = soup.get_text()
     return text
+
+def chunk_section(section: Dict, chunk_size: int, chunk_overlap: int) -> List[Dict]:
+    """Chunk a section."""
+    text_splitter = RecursiveCharacterTextSplitter(
+        separators=["\n\n", "\n", " ", ""],
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len)
+    chunks = text_splitter.create_documents(
+        texts=[section["text"]], 
+        metadatas=[{"source": section["source"]}])
+    return [{"text": chunk.page_content, "source": chunk.metadata["source"]} for chunk in chunks]
