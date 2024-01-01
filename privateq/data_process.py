@@ -1,8 +1,10 @@
 from pathlib import Path
 from bs4 import BeautifulSoup, NavigableString
 from privateq.config import FILE_DIR
-from typing import Dict, List
+from typing import Dict, List, Union, Any
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings.huggingface import HuggingFaceEmbeddings
 
 import os
 
@@ -53,7 +55,7 @@ def fetch_text(uri: str) -> str:
         text = soup.get_text()
     return text
 
-def chunk_section(section: Dict, chunk_size: int, chunk_overlap: int) -> List[Dict]:
+def chunk_section(section: Dict[str, Any], chunk_size: int, chunk_overlap: int) -> List[Dict[str, Any]]:
     """Chunk a section."""
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n", " ", ""],
@@ -64,3 +66,19 @@ def chunk_section(section: Dict, chunk_size: int, chunk_overlap: int) -> List[Di
         texts=[section["text"]], 
         metadatas=[{"source": section["source"]}])
     return [{"text": chunk.page_content, "source": chunk.metadata["source"]} for chunk in chunks]
+
+def get_embedding_model(
+        embedding_model_name: str, model_kwargs: List[str], encode_kwargs: List[str]
+        ) -> Union['OpenAIEmbeddings', 'HuggingFaceEmbeddings']:
+    """Get an embedding model."""
+    if embedding_model_name == "text-embedding-ada-002":
+        embedding_model = OpenAIEmbeddings(
+            model=embedding_model_name,
+            openai_api_base=os.environ["OPENAI_API_BASE"],
+            openai_api_key=os.environ["OPENAI_API_KEY"])
+    else:
+        embedding_model = HuggingFaceEmbeddings(
+            model_name=embedding_model_name,  # also works with model_path
+            model_kwargs=model_kwargs,
+            encode_kwargs=encode_kwargs)
+    return embedding_model
